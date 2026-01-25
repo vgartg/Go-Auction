@@ -132,7 +132,9 @@ func (e *Engine) CloseLot(lot *models.Lot) error {
 func (e *Engine) StartTimerForLot(lot *models.Lot) {
 	duration := time.Until(lot.ClosingAt)
 	if duration <= 0 {
-		e.CloseLot(lot)
+		if err := e.CloseLot(lot); err != nil {
+			slog.Error("failed to close lot", "lot_id", lot.ID, "error", err)
+		}
 		return
 	}
 	time.AfterFunc(duration, func() {
