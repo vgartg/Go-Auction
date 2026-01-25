@@ -13,13 +13,13 @@ import (
 )
 
 type Engine struct {
-	repo      *repository.PostgresRepo
+	repo      repository.LotRepository
 	wsManager interface {
 		BroadcastToLot(lotID string, message interface{})
 	}
 }
 
-func NewEngine(repo *repository.PostgresRepo, wsManager interface {
+func NewEngine(repo repository.LotRepository, wsManager interface {
 	BroadcastToLot(lotID string, message interface{})
 }) *Engine {
 	return &Engine{
@@ -47,6 +47,10 @@ func (e *Engine) CreateLot(ctx context.Context, title string, startPrice, minSte
 
 func (e *Engine) GetLot(ctx context.Context, id string) (*models.Lot, error) {
 	return e.repo.GetLotByID(ctx, id, false)
+}
+
+func (e *Engine) ListLots(ctx context.Context) ([]*models.Lot, error) {
+	return e.repo.GetAllLots(ctx)
 }
 
 func (e *Engine) PlaceBid(ctx context.Context, lotID, userID string, amount float64) (*models.Lot, error) {
@@ -144,8 +148,4 @@ func (e *Engine) StartTimerForLot(lot *models.Lot) {
 			}
 		}
 	})
-}
-
-func (e *Engine) ListLots(ctx context.Context) ([]*models.Lot, error) {
-	return e.repo.GetAllLots(ctx)
 }

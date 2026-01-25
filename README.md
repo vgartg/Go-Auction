@@ -49,3 +49,10 @@ WebSocket:
 const ws = new WebSocket("ws://localhost:8080/ws/lots/{lot_id}");
 ws.onmessage = (event) => console.log(JSON.parse(event.data));
 ```
+
+# GoAuction – High‑performance auction engine
+
+[![CI](https://github.com/vgartg/goauction/actions/workflows/ci.yml/badge.svg)](https://github.com/vgartg/goauction/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/vgartg/goauction/branch/main/graph/badge.svg)](https://codecov.io/gh/vgartg/goauction)
+[![Go Report Card](https://goreportcard.com/badge/github.com/vgartg/goauction)](https://goreportcard.com/report/github.com/vgartg/goauction)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

@@ -1,4 +1,4 @@
-.PHONY: run build test lint migrate-up migrate-down docker-build
+.PHONY: run build test test-integration lint coverage docker-build
 
 run:
 	go run ./cmd/goauction
@@ -9,14 +9,15 @@ build:
 test:
 	go test -v -race ./...
 
+test-integration:
+	go test -v -race -tags=integration ./internal/repository
+
 lint:
 	golangci-lint run
 
-migrate-up:
-	migrate -database ${DATABASE_URL} -path migrations up
-
-migrate-down:
-	migrate -database ${DATABASE_URL} -path migrations down
+coverage:
+	go test -race -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out
 
 docker-build:
 	docker build -t goauction:latest .
