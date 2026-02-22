@@ -1,0 +1,2 @@
+ALTER TABLE lots DROP CONSTRAINT IF EXISTS lots_winner_id_fkey;
+ALTER TABLE bids DROP CONSTRAINT IF EXISTS bids_user_id_fkey;

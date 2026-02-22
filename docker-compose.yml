@@ -9,15 +9,24 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
   goauction:
     build: .
     ports:
       - "8080:8080"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/goauction?sslmode=disable
       PORT: 8080
+      JWT_SECRET: dev-insecure-secret-please-change
+      SNIPING_WINDOW: 30s
+      SNIPING_EXTENSION: 30s
 
 volumes:
   postgres_data:

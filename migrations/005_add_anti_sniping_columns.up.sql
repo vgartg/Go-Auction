@@ -1,0 +1,2 @@
+ALTER TABLE lots
+    ADD COLUMN extended_count INT NOT NULL DEFAULT 0;

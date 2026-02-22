@@ -1,0 +1,1 @@
+ALTER TABLE lots DROP COLUMN IF EXISTS extended_count;

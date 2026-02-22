@@ -10,13 +10,16 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/vgartg/goauction/internal/api"
 	"github.com/vgartg/goauction/internal/auction"
+	"github.com/vgartg/goauction/internal/auth"
 	"github.com/vgartg/goauction/internal/config"
 	"github.com/vgartg/goauction/internal/metrics"
 	"github.com/vgartg/goauction/internal/repository"
+	"github.com/vgartg/goauction/internal/web"
 )
 
 func main() {
@@ -39,7 +42,11 @@ func main() {
 	}
 
 	wsManager := api.NewWebSocketManager()
-	engine := auction.NewEngine(repo, wsManager)
+	engine := auction.NewEngine(repo, wsManager, auction.Config{
+		SnipingWindow:    cfg.SnipingWindow,
+		SnipingExtension: cfg.SnipingExtension,
+	})
+	authSvc := auth.NewService(repo, cfg.JWTSecret)
 
 	// Restore active timers after restart
 	lots, err := repo.GetActiveLots(context.Background())
@@ -48,13 +55,21 @@ func main() {
 	} else {
 		metrics.ActiveLots.Set(float64(len(lots)))
 		for _, lot := range lots {
-			go engine.StartTimerForLot(lot)
+			engine.StartTimerForLot(lot)
 		}
 	}
 
 	r := chi.NewRouter()
-	handlers := api.NewHandlers(engine)
-	api.SetupRoutes(r, handlers, wsManager)
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.Timeout(30 * time.Second))
+
+	apiHandlers := api.NewHandlers(engine, authSvc, repo)
+	api.SetupRoutes(r, apiHandlers, wsManager, authSvc)
+
+	webHandlers := web.NewHandlers(engine, authSvc, repo)
+	web.SetupRoutes(r, webHandlers, authSvc)
 
 	if cfg.MetricsEnabled {
 		r.Handle("/metrics", promhttp.Handler())
@@ -62,12 +77,15 @@ func main() {
 	}
 
 	server := &http.Server{
-		Addr:    ":" + cfg.Port,
-		Handler: r,
+		Addr:              ":" + cfg.Port,
+		Handler:           r,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	go func() {
-		slog.Info("starting server", "port", cfg.Port)
+		slog.Info("starting server", "port", cfg.Port,
+			"sniping_window", cfg.SnipingWindow,
+			"sniping_extension", cfg.SnipingExtension)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("server failed", "error", err)
 			os.Exit(1)
