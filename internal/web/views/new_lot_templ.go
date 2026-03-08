@@ -43,7 +43,7 @@ func NewLot(data LayoutData, formError string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"max-w-lg mx-auto bg-white border border-slate-200 rounded-lg p-6 mt-4\"><h1 class=\"text-xl font-bold mb-4\">Create a lot</h1><form method=\"POST\" action=\"/lots\" class=\"space-y-3\"><div><label class=\"block text-xs text-slate-500 mb-1\">Title</label> <input type=\"text\" name=\"title\" required maxlength=\"200\" class=\"w-full border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400\"></div><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"block text-xs text-slate-500 mb-1\">Start price</label> <input type=\"number\" name=\"start_price\" step=\"0.01\" min=\"0.01\" required value=\"100.00\" class=\"w-full border border-slate-300 rounded-md px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-400\"></div><div><label class=\"block text-xs text-slate-500 mb-1\">Min step</label> <input type=\"number\" name=\"min_step\" step=\"0.01\" min=\"0.01\" required value=\"10.00\" class=\"w-full border border-slate-300 rounded-md px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-400\"></div></div><div><label class=\"block text-xs text-slate-500 mb-1\">Closes at (UTC)</label> <input type=\"datetime-local\" name=\"closing_at\" required value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"max-w-lg mx-auto bg-white border border-slate-200 rounded-lg p-6 mt-4\"><h1 class=\"text-xl font-bold mb-4\">Create a lot</h1><form method=\"POST\" action=\"/lots\" class=\"space-y-3\"><div><label class=\"block text-xs text-slate-500 mb-1\">Title</label> <input type=\"text\" name=\"title\" required maxlength=\"200\" class=\"w-full border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-400\"></div><div class=\"grid grid-cols-2 gap-3\"><div><label class=\"block text-xs text-slate-500 mb-1\">Start price</label> <input type=\"number\" name=\"start_price\" step=\"0.01\" min=\"0.01\" required value=\"100.00\" class=\"w-full border border-slate-300 rounded-md px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-400\"></div><div><label class=\"block text-xs text-slate-500 mb-1\">Min step</label> <input type=\"number\" name=\"min_step\" step=\"0.01\" min=\"0.01\" required value=\"10.00\" class=\"w-full border border-slate-300 rounded-md px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-400\"></div></div><div><label class=\"block text-xs text-slate-500 mb-1\">Closes at (your local time)</label> <input type=\"datetime-local\" name=\"closing_at\" required value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -56,7 +56,7 @@ func NewLot(data LayoutData, formError string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" class=\"w-full border border-slate-300 rounded-md px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-400\"></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" class=\"w-full border border-slate-300 rounded-md px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-400\"> <input type=\"hidden\" name=\"tz_offset_minutes\" value=\"0\"><script>\n\t\t\t\t\t\tdocument.currentScript.previousElementSibling.value = new Date().getTimezoneOffset();\n\t\t\t\t\t</script></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -68,7 +68,7 @@ func NewLot(data LayoutData, formError string) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(formError)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views/new_lot.templ`, Line: 34, Col: 50}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views/new_lot.templ`, Line: 38, Col: 50}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {

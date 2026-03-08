@@ -4,10 +4,16 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vgartg/goauction/internal/auth"
+	"github.com/vgartg/goauction/internal/httpx"
 )
 
-func SetupRoutes(r chi.Router, h *Handlers, authSvc *auth.Service) {
-	// All web routes get Attach so the header can show login state.
+func SetupRoutes(
+	r chi.Router,
+	h *Handlers,
+	authSvc *auth.Service,
+	bidLimiter *httpx.RateLimiter,
+	authLimiter *httpx.RateLimiter,
+) {
 	r.Group(func(r chi.Router) {
 		r.Use(authSvc.Attach)
 
@@ -15,18 +21,20 @@ func SetupRoutes(r chi.Router, h *Handlers, authSvc *auth.Service) {
 		r.Get("/lots/{id}", h.LotPage)
 		r.Get("/users/{id}", h.UserProfile)
 
-		r.Get("/login", h.LoginForm)
-		r.Post("/login", h.Login)
-		r.Get("/register", h.RegisterForm)
-		r.Post("/register", h.Register)
+		r.Group(func(r chi.Router) {
+			r.Use(authLimiter.Middleware())
+			r.Get("/login", h.LoginForm)
+			r.Post("/login", h.Login)
+			r.Get("/register", h.RegisterForm)
+			r.Post("/register", h.Register)
+		})
 		r.Post("/logout", h.Logout)
 
-		// Auth-required pages: middleware redirects to /login if missing.
 		r.Group(func(r chi.Router) {
 			r.Use(authSvc.Middleware(true))
 			r.Get("/lots/new", h.NewLotForm)
 			r.Post("/lots", h.CreateLot)
-			r.Post("/lots/{id}/bids", h.PlaceBid)
+			r.With(bidLimiter.Middleware()).Post("/lots/{id}/bids", h.PlaceBid)
 		})
 	})
 }

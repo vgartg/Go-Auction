@@ -1,21 +1,19 @@
-# Go build artifacts
 /bin/
 /goauction
 /goauction.exe
 
-# Coverage
 coverage.out
 coverage.html
 
-# IDE
+.templ
+.templ-cache/
+
 .idea/
 .vscode/
 *.swp
 
-# OS
 .DS_Store
 Thumbs.db
 
-# Local env files
 .env
 .env.local

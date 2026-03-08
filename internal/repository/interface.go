@@ -13,8 +13,15 @@ type LotRepository interface {
 	CreateBid(ctx context.Context, bid *models.Bid) error
 	GetHighestBid(ctx context.Context, lotID string) (*models.Bid, error)
 	GetActiveLots(ctx context.Context) ([]*models.Lot, error)
-	GetAllLots(ctx context.Context) ([]*models.Lot, error)
+	GetAllLots(ctx context.Context, opts LotListOptions) ([]*models.Lot, error)
 	GetRecentBids(ctx context.Context, lotID string, limit int) ([]*models.Bid, error)
+	WithinTx(ctx context.Context, fn func(ctx context.Context) error) error
+}
+
+type LotListOptions struct {
+	Status models.LotStatus
+	Limit  int
+	Offset int
 }
 
 type UserRepository interface {

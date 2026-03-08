@@ -38,7 +38,6 @@ func (m *WebSocketManager) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 	}
 	defer conn.Close()
 
-	// Register connection
 	m.Lock()
 	if m.subscriptions[lotID] == nil {
 		m.subscriptions[lotID] = make(map[*websocket.Conn]struct{})
@@ -46,14 +45,12 @@ func (m *WebSocketManager) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 	m.subscriptions[lotID][conn] = struct{}{}
 	m.Unlock()
 
-	// Keep connection alive (read loop)
 	for {
 		if _, _, err := conn.ReadMessage(); err != nil {
 			break
 		}
 	}
 
-	// Unregister
 	m.Lock()
 	delete(m.subscriptions[lotID], conn)
 	if len(m.subscriptions[lotID]) == 0 {
