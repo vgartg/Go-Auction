@@ -1,0 +1,88 @@
+package views
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/vgartg/goauction/internal/models"
+)
+
+templ Home(data LayoutData, lots []*models.Lot, statusFilter string) {
+	@Layout(data) {
+		<div class="flex items-center justify-between mb-4">
+			<div>
+				<h1 class="text-2xl font-bold">Auctions</h1>
+				<p class="text-sm text-slate-500">Live bidding. Optimistic locking. Anti-sniping.</p>
+			</div>
+			if data.CurrentUser != nil {
+				<a href="/lots/new" class="bg-amber-500 hover:bg-amber-600 text-white rounded-md px-4 py-2 text-sm font-medium">
+					+ Create lot
+				</a>
+			}
+		</div>
+		<div class="flex items-center gap-2 mb-6 text-sm">
+			@FilterPill("All", "/", statusFilter == "")
+			@FilterPill("Active", "/?status=active", statusFilter == "active")
+			@FilterPill("Closed", "/?status=closed", statusFilter == "closed")
+		</div>
+		if len(lots) == 0 {
+			<div class="rounded-lg border border-dashed border-slate-300 bg-white p-12 text-center text-slate-500">
+				No lots yet.
+				if data.CurrentUser != nil {
+					<a href="/lots/new" class="text-amber-600 hover:underline">Create the first one →</a>
+				} else {
+					<a href="/register" class="text-amber-600 hover:underline">Sign up to create one →</a>
+				}
+			</div>
+		} else {
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+				for _, lot := range lots {
+					@LotCard(lot)
+				}
+			</div>
+		}
+	}
+}
+
+templ LotCard(lot *models.Lot) {
+	<a href={ templ.SafeURL("/lots/" + lot.ID) } class="block bg-white rounded-lg border border-slate-200 p-4 hover-lift">
+		<div class="flex items-start justify-between gap-2 mb-3">
+			<h3 class="font-semibold text-base line-clamp-2">{ lot.Title }</h3>
+			@StatusBadge(lot.Status)
+		</div>
+		<div class="text-2xl font-bold text-slate-900 tabular-nums">
+			{ fmt.Sprintf("%.2f", lot.CurrentPrice) }
+		</div>
+		<div class="text-xs text-slate-500 mt-1">
+			if lot.Status == models.LotStatusActive {
+				Closes { lot.ClosingAt.Format(time.RFC822) }
+			} else {
+				Closed { lot.ClosingAt.Format(time.RFC822) }
+			}
+		</div>
+		if lot.ExtendedCount > 0 {
+			<div class="mt-2 inline-block bg-amber-50 text-amber-700 text-xs font-medium rounded px-2 py-0.5">
+				Extended × { fmt.Sprintf("%d", lot.ExtendedCount) }
+			</div>
+		}
+	</a>
+}
+
+templ FilterPill(label, href string, active bool) {
+	if active {
+		<a href={ templ.SafeURL(href) } class="px-3 py-1 rounded-full bg-slate-900 text-white">{ label }</a>
+	} else {
+		<a href={ templ.SafeURL(href) } class="px-3 py-1 rounded-full bg-white border border-slate-200 text-slate-700 hover:border-slate-400">{ label }</a>
+	}
+}
+
+templ StatusBadge(s models.LotStatus) {
+	switch s {
+		case models.LotStatusActive:
+			<span class="text-xs font-medium bg-emerald-100 text-emerald-700 rounded-full px-2 py-0.5">active</span>
+		case models.LotStatusClosed:
+			<span class="text-xs font-medium bg-slate-200 text-slate-700 rounded-full px-2 py-0.5">closed</span>
+		default:
+			<span class="text-xs font-medium bg-red-100 text-red-700 rounded-full px-2 py-0.5">{ string(s) }</span>
+	}
+}

@@ -1,0 +1,224 @@
+package views
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/vgartg/goauction/internal/models"
+)
+
+type LotDetailData struct {
+	Layout LayoutData
+	Lot    *models.Lot
+	Bids   []*models.Bid
+}
+
+templ LotDetail(data LotDetailData) {
+	@Layout(data.Layout) {
+		<div class="grid lg:grid-cols-3 gap-6">
+			<div class="lg:col-span-2 bg-white rounded-lg border border-slate-200 p-6">
+				<div class="flex items-start justify-between mb-2">
+					<h1 class="text-2xl font-bold">{ data.Lot.Title }</h1>
+					@StatusBadge(data.Lot.Status)
+				</div>
+				<div class="text-xs text-slate-500 mb-6 font-mono">{ data.Lot.ID }</div>
+
+				<div class="bg-slate-50 rounded-md p-4 mb-4">
+					<div class="text-xs uppercase tracking-wide text-slate-500 mb-1">Current price</div>
+					<div id="current-price" class="text-4xl font-bold tabular-nums">
+						{ fmt.Sprintf("%.2f", data.Lot.CurrentPrice) }
+					</div>
+					<div class="text-xs text-slate-500 mt-2">
+						Start { fmt.Sprintf("%.2f", data.Lot.StartPrice) } · Min step { fmt.Sprintf("%.2f", data.Lot.MinStep) }
+					</div>
+				</div>
+
+				if data.Lot.Status == models.LotStatusActive {
+					<div class="bg-white rounded-md border border-slate-200 p-4 mb-4" x-data="{ now: Date.now() }" x-init="setInterval(() => now = Date.now(), 1000)">
+						<div class="text-xs uppercase tracking-wide text-slate-500 mb-1">Closes in</div>
+						<div id="time-remaining" class="text-2xl font-semibold tabular-nums" data-closes-at={ data.Lot.ClosingAt.UTC().Format(time.RFC3339) }>
+							—
+						</div>
+						<div id="extended-badge" class={ "mt-2 inline-block bg-amber-50 text-amber-700 text-xs font-medium rounded px-2 py-0.5",
+							templ.KV("hidden", data.Lot.ExtendedCount == 0) }>
+							Anti-sniping: extended × <span id="extended-count">{ fmt.Sprintf("%d", data.Lot.ExtendedCount) }</span>
+						</div>
+					</div>
+				}
+
+				if data.Lot.Status == models.LotStatusClosed {
+					<div class="bg-slate-100 rounded-md p-4 text-sm">
+						<div class="text-xs uppercase tracking-wide text-slate-500 mb-1">Final price</div>
+						<div class="text-2xl font-bold mb-2">{ fmt.Sprintf("%.2f", data.Lot.CurrentPrice) }</div>
+						if data.Lot.WinnerID != nil {
+							<a href={ templ.SafeURL("/users/" + *data.Lot.WinnerID) } class="text-amber-700 hover:underline text-sm">
+								Winner: { (*data.Lot.WinnerID)[:8] }… →
+							</a>
+						} else {
+							<span class="text-slate-500">No bids placed.</span>
+						}
+					</div>
+				}
+			</div>
+
+			<aside class="bg-white rounded-lg border border-slate-200 p-6">
+				<h2 class="font-semibold mb-3">Place a bid</h2>
+				<div id="bid-panel">
+					@BidPanel(data.Lot, data.Layout.CurrentUser, "")
+				</div>
+
+				<h2 class="font-semibold mt-6 mb-3">Recent bids</h2>
+				<ul id="bid-history" class="text-sm divide-y divide-slate-100">
+					if len(data.Bids) == 0 {
+						<li class="text-slate-400 py-2">No bids yet.</li>
+					} else {
+						for _, b := range data.Bids {
+							@BidRow(b)
+						}
+					}
+				</ul>
+			</aside>
+		</div>
+
+		if data.Lot.Status == models.LotStatusActive {
+			@LotRealtimeScript()
+		}
+	}
+}
+
+templ BidPanel(lot *models.Lot, user *models.User, errorMsg string) {
+	if user == nil {
+		<p class="text-sm text-slate-500">
+			<a href="/login" class="text-amber-600 hover:underline">Log in</a> to place a bid.
+		</p>
+	} else if lot.Status != models.LotStatusActive {
+		<p class="text-sm text-slate-500">This lot is no longer active.</p>
+	} else {
+		<form
+			hx-post={ "/lots/" + lot.ID + "/bids" }
+			hx-target="#bid-panel"
+			hx-swap="innerHTML"
+			class="space-y-2"
+		>
+			<label class="block text-xs text-slate-500">Your bid (min { fmt.Sprintf("%.2f", lot.CurrentPrice+lot.MinStep) })</label>
+			<input
+				type="number"
+				name="amount"
+				step="0.01"
+				min={ fmt.Sprintf("%.2f", lot.CurrentPrice+lot.MinStep) }
+				value={ fmt.Sprintf("%.2f", lot.CurrentPrice+lot.MinStep) }
+				required
+				class="w-full border border-slate-300 rounded-md px-3 py-2 text-base tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-400"
+			/>
+			if errorMsg != "" {
+				<div class="text-xs text-red-600">{ errorMsg }</div>
+			}
+			<button class="w-full bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-md px-3 py-2">
+				Bid
+			</button>
+		</form>
+	}
+}
+
+templ BidRow(b *models.Bid) {
+	<li class="py-2 flex justify-between gap-2">
+		<a href={ templ.SafeURL("/users/" + b.UserID) } class="text-slate-500 hover:text-slate-900 font-mono text-xs">
+			{ b.UserID[:8] }…
+		</a>
+		<div class="text-right">
+			<div class="font-semibold tabular-nums">{ fmt.Sprintf("%.2f", b.Amount) }</div>
+			<div class="text-xs text-slate-400">{ b.CreatedAt.Format(time.Kitchen) }</div>
+		</div>
+	</li>
+}
+
+templ LotRealtimeScript() {
+	<script>
+		(function() {
+			const parts = location.pathname.split("/");
+			const lotID = parts[parts.length - 1];
+			if (!lotID) return;
+
+			const proto = location.protocol === "https:" ? "wss:" : "ws:";
+			const wsURL = proto + "//" + location.host + "/ws/lots/" + lotID;
+			const fmt = (n) => Number(n).toFixed(2);
+
+			function tickTimer() {
+				const el = document.getElementById("time-remaining");
+				if (!el) return;
+				const closesAt = new Date(el.dataset.closesAt).getTime();
+				const left = closesAt - Date.now();
+				if (left <= 0) { el.textContent = "0s"; return; }
+				const s = Math.floor(left / 1000);
+				const m = Math.floor(s / 60), sec = s % 60;
+				const h = Math.floor(m / 60), min = m % 60;
+				el.textContent = (h ? h + "h " : "") + (min ? min + "m " : "") + sec + "s";
+			}
+			setInterval(tickTimer, 1000); tickTimer();
+
+			function onMessage(event) {
+				let msg;
+				try { msg = JSON.parse(event.data); } catch(e) { return; }
+				if (msg.type === "new_bid") {
+					const cp = document.getElementById("current-price");
+					if (cp) {
+						cp.textContent = fmt(msg.new_price);
+						cp.classList.add("text-emerald-600");
+						setTimeout(() => cp.classList.remove("text-emerald-600"), 700);
+					}
+					const list = document.getElementById("bid-history");
+					if (list) {
+						const empty = list.querySelector(".text-slate-400");
+						if (empty) empty.remove();
+						const li = document.createElement("li");
+						li.className = "py-2 flex justify-between gap-2 bg-amber-50 -mx-1 px-1 rounded";
+						const ts = new Date(msg.timestamp);
+						const hh = ts.getHours(), mm = String(ts.getMinutes()).padStart(2,"0");
+						const userShort = document.createElement("span");
+						userShort.className = "text-slate-500 font-mono text-xs";
+						userShort.textContent = String(msg.user_id).slice(0,8) + "…";
+						const right = document.createElement("div");
+						right.className = "text-right";
+						const amt = document.createElement("div");
+						amt.className = "font-semibold tabular-nums";
+						amt.textContent = fmt(msg.amount);
+						const tm = document.createElement("div");
+						tm.className = "text-xs text-slate-400";
+						tm.textContent = hh + ":" + mm;
+						right.appendChild(amt); right.appendChild(tm);
+						li.appendChild(userShort); li.appendChild(right);
+						list.prepend(li);
+						setTimeout(() => li.classList.remove("bg-amber-50"), 1500);
+					}
+				}
+				if (msg.type === "lot_extended") {
+					const tr = document.getElementById("time-remaining");
+					if (tr) tr.dataset.closesAt = msg.closing_at;
+					const badge = document.getElementById("extended-badge");
+					const cnt = document.getElementById("extended-count");
+					if (badge && cnt) {
+						badge.classList.remove("hidden");
+						cnt.textContent = msg.extended_count;
+						badge.classList.add("animate-pulse");
+						setTimeout(() => badge.classList.remove("animate-pulse"), 1500);
+					}
+				}
+				if (msg.type === "lot_closed") {
+					setTimeout(() => location.reload(), 800);
+				}
+			}
+
+			let ws, backoff = 500;
+			function connect() {
+				ws = new WebSocket(wsURL);
+				ws.onmessage = onMessage;
+				ws.onopen = () => { backoff = 500; };
+				ws.onclose = () => {
+					setTimeout(connect, backoff);
+					backoff = Math.min(backoff * 2, 10000);
+				};
+			}
+			connect();
+		})();
+	</script>
+}

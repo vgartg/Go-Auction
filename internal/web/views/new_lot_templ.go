@@ -56,7 +56,7 @@ func NewLot(data LayoutData, formError string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" class=\"w-full border border-slate-300 rounded-md px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-400\"> <input type=\"hidden\" name=\"tz_offset_minutes\" value=\"0\"><script>\n\t\t\t\t\t\tdocument.currentScript.previousElementSibling.value = new Date().getTimezoneOffset();\n\t\t\t\t\t</script></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" class=\"w-full border border-slate-300 rounded-md px-3 py-2 tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-400\"> <input type=\"hidden\" name=\"tz_offset_minutes\" value=\"0\"><script>\r\n\t\t\t\t\t\tdocument.currentScript.previousElementSibling.value = new Date().getTimezoneOffset();\r\n\t\t\t\t\t</script></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
