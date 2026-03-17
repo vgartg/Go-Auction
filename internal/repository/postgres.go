@@ -185,7 +185,11 @@ func (r *PostgresRepo) GetRecentBids(ctx context.Context, lotID string, limit in
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			slog.Error("failed to close rows in GetRecentBids", "error", err)
+		}
+	}()
 	var bids []*models.Bid
 	for rows.Next() {
 		b := &models.Bid{}
@@ -249,7 +253,11 @@ func (r *PostgresRepo) queryLots(ctx context.Context, query string, args ...any)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			slog.Error("failed to close rows in queryLots", "error", err)
+		}
+	}()
 	var lots []*models.Lot
 	for rows.Next() {
 		lot, err := scanLotRow(rows)

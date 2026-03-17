@@ -36,7 +36,11 @@ func (m *WebSocketManager) HandleWebSocket(w http.ResponseWriter, r *http.Reques
 		slog.Error("websocket upgrade failed", "error", err)
 		return
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			slog.Error("websocket close error", "error", err)
+		}
+	}()
 
 	m.Lock()
 	if m.subscriptions[lotID] == nil {
@@ -69,7 +73,9 @@ func (m *WebSocketManager) BroadcastToLot(lotID string, message interface{}) {
 	for conn := range conns {
 		if err := conn.WriteJSON(message); err != nil {
 			slog.Error("websocket write error", "lot_id", lotID, "error", err)
-			conn.Close()
+			if err := conn.Close(); err != nil {
+				slog.Error("failed to close websocket connection", "lot_id", lotID, "error", err)
+			}
 		}
 	}
 }
