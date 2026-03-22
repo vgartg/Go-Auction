@@ -155,9 +155,3 @@ Gets you Postgres `StatefulSet` with a 1Gi PVC, a 2-replica `Deployment` with re
 - OpenTelemetry tracing + Grafana dashboards in `/deploy`
 - Outbox + Kafka publisher
 - `testcontainers-go` integration tests for the repo
-
----
-
-## License
-
-MIT — see [LICENSE](LICENSE)
