@@ -1,7 +1,7 @@
 # GoAuction
 
 [![CI](https://github.com/vgartg/goauction/actions/workflows/ci.yml/badge.svg)](https://github.com/vgartg/goauction/actions/workflows/ci.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/vgartg/goauction)](https://goreportcard.com/report/github.com/vgartg/goauction)
+[![Go Report Card](https://img.shields.io/badge/go%20report-A+-brightgreen.svg?style=flat)](https://goreportcard.com/report/github.com/vgartg/goauction)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Real-time auction engine in Go. Concurrent bidding with optimistic locking, anti-sniping, JWT auth, WebSocket updates and a server-rendered UI on **templ + HTMX + Tailwind**
