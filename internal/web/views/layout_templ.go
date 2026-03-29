@@ -5,10 +5,11 @@ package views
 
 //lint:file-ignore SA4006 This context is only used if a nested component is present.
 
-import "github.com/a-h/templ"
-import templruntime "github.com/a-h/templ/runtime"
-
-import "github.com/vgartg/goauction/internal/models"
+import (
+	"github.com/a-h/templ"
+	templruntime "github.com/a-h/templ/runtime"
+	"github.com/vgartg/goauction/internal/models"
+)
 
 type LayoutData struct {
 	Title       string
@@ -50,7 +51,7 @@ func Layout(data LayoutData) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " · GoAuction</title><script src=\"https://cdn.tailwindcss.com\"></script><script src=\"https://unpkg.com/htmx.org@2.0.4\" integrity=\"sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+\" crossorigin=\"anonymous\"></script><script src=\"https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js\" defer></script><link rel=\"icon\" href=\"data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔨</text></svg>\"><style>\r\n\t\t\t\t[x-cloak] { display: none !important; }\r\n\t\t\t\t.hover-lift { transition: transform .15s ease, box-shadow .15s ease; }\r\n\t\t\t\t.hover-lift:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.08); }\r\n\t\t\t</style></head><body class=\"bg-slate-50 text-slate-900 min-h-screen flex flex-col\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " · GoAuction</title><script src=\"https://cdn.tailwindcss.com\"></script><script src=\"https://unpkg.com/htmx.org@2.0.4\" integrity=\"sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+\" crossorigin=\"anonymous\"></script><script src=\"https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js\" defer></script><link rel=\"icon\" href=\"data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22></text></svg>\"><style>\r\n\t\t\t\t[x-cloak] { display: none !important; }\r\n\t\t\t\t.hover-lift { transition: transform .15s ease, box-shadow .15s ease; }\r\n\t\t\t\t.hover-lift:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.08); }\r\n\t\t\t</style></head><body class=\"bg-slate-50 text-slate-900 min-h-screen flex flex-col\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -122,7 +123,7 @@ func Header(user *models.User) templ.Component {
 			templ_7745c5c3_Var4 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<header class=\"bg-white border-b border-slate-200 sticky top-0 z-30\"><div class=\"max-w-6xl mx-auto px-4 h-14 flex items-center justify-between\"><a href=\"/\" class=\"flex items-center gap-2 font-bold text-lg\"><span class=\"text-amber-500\">🔨</span> <span>GoAuction</span></a><nav class=\"flex items-center gap-4 text-sm\"><a href=\"/\" class=\"text-slate-700 hover:text-slate-900\">Lots</a> ")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<header class=\"bg-white border-b border-slate-200 sticky top-0 z-30\"><div class=\"max-w-6xl mx-auto px-4 h-14 flex items-center justify-between\"><a href=\"/\" class=\"flex items-center gap-2 font-bold text-lg\"><span class=\"text-amber-500\"></span> <span>GoAuction</span></a><nav class=\"flex items-center gap-4 text-sm\"><a href=\"/\" class=\"text-slate-700 hover:text-slate-900\">Lots</a> ")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
