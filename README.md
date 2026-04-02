@@ -1,12 +1,16 @@
 # GoAuction
 
 [![CI](https://github.com/vgartg/goauction/actions/workflows/ci.yml/badge.svg)](https://github.com/vgartg/goauction/actions/workflows/ci.yml)
-[![Go Report Card](https://img.shields.io/badge/go%20report-A+-brightgreen.svg?style=flat)](https://goreportcard.com/report/github.com/vgartg/goauction)
+[![Go Report Card](https://goreportcard.com/badge/github.com/vgartg/PET_Go-Auction)](https://goreportcard.com/report/github.com/vgartg/PET_Go-Auction)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Real-time auction engine in Go. Concurrent bidding with optimistic locking, anti-sniping, JWT auth, WebSocket updates and a server-rendered UI on **templ + HTMX + Tailwind**
 
 > One binary serves the JSON REST API on `/api/*` and the full HTML UI on `/`. Same engine, same database, no SPA toolchain
+
+---
+
+<img width="1066" height="352" alt="image" src="https://github.com/user-attachments/assets/1d10c05e-9061-45fd-9e6b-ab57eafd933e" />
 
 ---
 
