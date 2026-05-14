@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -38,7 +39,9 @@ func (h *Handlers) CreateLot(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(lot)
+	if err := json.NewEncoder(w).Encode(lot); err != nil {
+		slog.Error("failed to encode response", "error", err)
+	}
 }
 
 func (h *Handlers) GetLot(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +52,9 @@ func (h *Handlers) GetLot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(lot)
+	if err := json.NewEncoder(w).Encode(lot); err != nil {
+		slog.Error("failed to encode response", "error", err)
+	}
 }
 
 type PlaceBidRequest struct {
@@ -70,7 +75,9 @@ func (h *Handlers) PlaceBid(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(lot)
+	if err := json.NewEncoder(w).Encode(lot); err != nil {
+		slog.Error("failed to encode response", "error", err)
+	}
 }
 
 func (h *Handlers) ListLots(w http.ResponseWriter, r *http.Request) {
