@@ -4,12 +4,12 @@ import (
     "database/sql"
     "fmt"
     "log/slog"
-    "time"
 
     "github.com/golang-migrate/migrate/v4"
     "github.com/golang-migrate/migrate/v4/database/postgres"
     _ "github.com/golang-migrate/migrate/v4/source/file"
     _ "github.com/lib/pq"
+    "github.com/vgartg/goauction/internal/models"
 )
 
 type PostgresRepo struct {
@@ -47,22 +47,16 @@ func (r *PostgresRepo) RunMigrations(databaseURL string) error {
     return nil
 }
 
-// Placeholder methods – full implementation in commit 3
+// Placeholder methods – to be implemented in commit 3
 func (r *PostgresRepo) CreateLot(lot *models.Lot) error {
-    return nil
+    return fmt.Errorf("not implemented")
 }
 func (r *PostgresRepo) GetLotByID(id string) (*models.Lot, error) {
-    return nil, nil
+    return nil, fmt.Errorf("not implemented")
 }
 func (r *PostgresRepo) UpdateLot(lot *models.Lot) error {
-    return nil
-}
-func (r *PostgresRepo) GetActiveLots() ([]*models.Lot, error) {
-    return nil, nil
+    return fmt.Errorf("not implemented")
 }
 func (r *PostgresRepo) CreateBid(bid *models.Bid) error {
-    return nil
-}
-func (r *PostgresRepo) GetHighestBid(lotID string) (*models.Bid, error) {
-    return nil, nil
+    return fmt.Errorf("not implemented")
 }
