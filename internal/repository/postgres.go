@@ -136,3 +136,28 @@ func (r *PostgresRepo) GetHighestBid(ctx context.Context, lotID string) (*models
 	}
 	return bid, nil
 }
+
+func (r *PostgresRepo) GetAllLots(ctx context.Context) ([]*models.Lot, error) {
+	rows, err := r.db.QueryContext(ctx, `
+        SELECT id, title, start_price, min_step, current_price, status, created_at, closing_at, version, winner_id
+        FROM lots ORDER BY created_at DESC
+    `)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var lots []*models.Lot
+	for rows.Next() {
+		lot := &models.Lot{}
+		var winnerID sql.NullString
+		if err := rows.Scan(&lot.ID, &lot.Title, &lot.StartPrice, &lot.MinStep, &lot.CurrentPrice,
+			&lot.Status, &lot.CreatedAt, &lot.ClosingAt, &lot.Version, &winnerID); err != nil {
+			return nil, err
+		}
+		if winnerID.Valid {
+			lot.WinnerID = &winnerID.String
+		}
+		lots = append(lots, lot)
+	}
+	return lots, nil
+}
