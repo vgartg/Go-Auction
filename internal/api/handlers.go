@@ -2,12 +2,10 @@ package api
 
 import (
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
-
 	"github.com/vgartg/goauction/internal/auction"
 )
 
@@ -39,9 +37,7 @@ func (h *Handlers) CreateLot(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(lot); err != nil {
-		slog.Error("failed to encode response", "error", err)
-	}
+	_ = json.NewEncoder(w).Encode(lot) // nolint:errcheck
 }
 
 func (h *Handlers) GetLot(w http.ResponseWriter, r *http.Request) {
@@ -52,9 +48,17 @@ func (h *Handlers) GetLot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(lot); err != nil {
-		slog.Error("failed to encode response", "error", err)
+	_ = json.NewEncoder(w).Encode(lot) // nolint:errcheck
+}
+
+func (h *Handlers) ListLots(w http.ResponseWriter, r *http.Request) {
+	lots, err := h.engine.ListLots(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(lots) // nolint:errcheck
 }
 
 type PlaceBidRequest struct {
@@ -75,17 +79,6 @@ func (h *Handlers) PlaceBid(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(lot); err != nil {
-		slog.Error("failed to encode response", "error", err)
-	}
-}
-
-func (h *Handlers) ListLots(w http.ResponseWriter, r *http.Request) {
-	lots, err := h.engine.ListLots(r.Context())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(lots)
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(lot) // nolint:errcheck
 }
