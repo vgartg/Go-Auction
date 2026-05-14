@@ -5,9 +5,9 @@ import (
 )
 
 type Config struct {
-    Port            string `env:"PORT" envDefault:"8080"`
-    DatabaseURL     string `env:"DATABASE_URL" envDefault:"postgres://postgres:postgres@localhost:5432/goauction?sslmode=disable"`
-    MetricsEnabled  bool   `env:"METRICS_ENABLED" envDefault:"true"`
+    Port           string `env:"PORT" envDefault:"8080"`
+    DatabaseURL    string `env:"DATABASE_URL" envDefault:"postgres://postgres:postgres@localhost:5432/goauction?sslmode=disable"`
+    MetricsEnabled bool   `env:"METRICS_ENABLED" envDefault:"true"`
 }
 
 func Load() (*Config, error) {
