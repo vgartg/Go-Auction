@@ -19,8 +19,6 @@ type WSBroadcaster interface {
 }
 
 type Config struct {
-	// Anti-sniping: if a bid lands within SnipingWindow before close,
-	// extend ClosingAt by SnipingExtension. Zero window disables it.
 	SnipingWindow    time.Duration
 	SnipingExtension time.Duration
 }
@@ -65,8 +63,8 @@ func (e *Engine) GetLot(ctx context.Context, id string) (*models.Lot, error) {
 	return e.repo.GetLotByID(ctx, id, false)
 }
 
-func (e *Engine) ListLots(ctx context.Context) ([]*models.Lot, error) {
-	return e.repo.GetAllLots(ctx)
+func (e *Engine) ListLots(ctx context.Context, opts repository.LotListOptions) ([]*models.Lot, error) {
+	return e.repo.GetAllLots(ctx, opts)
 }
 
 func (e *Engine) RecentBids(ctx context.Context, lotID string, limit int) ([]*models.Bid, error) {
@@ -74,53 +72,61 @@ func (e *Engine) RecentBids(ctx context.Context, lotID string, limit int) ([]*mo
 }
 
 func (e *Engine) PlaceBid(ctx context.Context, lotID, userID string, amount float64) (*models.Lot, error) {
+	startTS := time.Now()
+	var lot *models.Lot
+	var extended bool
+	var bidTs time.Time
+
 	for attempts := 0; attempts < 3; attempts++ {
-		lot, err := e.repo.GetLotByID(ctx, lotID, true)
-		if err != nil {
-			return nil, err
-		}
-		if lot.Status != models.LotStatusActive {
-			return nil, errors.New("lot is not active")
-		}
-		if time.Now().After(lot.ClosingAt) {
-			return nil, errors.New("lot already closed")
-		}
-		if amount <= lot.CurrentPrice {
-			return nil, fmt.Errorf("bid must be higher than current price %.2f", lot.CurrentPrice)
-		}
-		if amount < lot.CurrentPrice+lot.MinStep {
-			return nil, fmt.Errorf("bid must be at least %.2f more than current price", lot.MinStep)
-		}
-
-		bid := &models.Bid{
-			LotID:  lotID,
-			UserID: userID,
-			Amount: amount,
-		}
-		if err := e.repo.CreateBid(ctx, bid); err != nil {
-			return nil, err
-		}
-
-		oldVersion := lot.Version
-		lot.CurrentPrice = amount
-		lot.Version++
-
-		// Anti-sniping: extend close window if bid lands near the end.
-		extended := false
-		if e.cfg.SnipingWindow > 0 && time.Until(lot.ClosingAt) <= e.cfg.SnipingWindow {
-			lot.ClosingAt = time.Now().Add(e.cfg.SnipingExtension)
-			lot.ExtendedCount++
-			extended = true
-		}
-
-		if err := e.repo.UpdateLot(ctx, lot, oldVersion); err != nil {
-			if errors.Is(err, repository.ErrOptimisticLock) {
-				continue
+		extended = false
+		txErr := e.repo.WithinTx(ctx, func(ctx context.Context) error {
+			l, err := e.repo.GetLotByID(ctx, lotID, true)
+			if err != nil {
+				return err
 			}
-			return nil, err
+			if l.Status != models.LotStatusActive {
+				return errors.New("lot is not active")
+			}
+			if time.Now().After(l.ClosingAt) {
+				return errors.New("lot already closed")
+			}
+			if amount <= l.CurrentPrice {
+				return fmt.Errorf("bid must be higher than current price %.2f", l.CurrentPrice)
+			}
+			if amount < l.CurrentPrice+l.MinStep {
+				return fmt.Errorf("bid must be at least %.2f more than current price", l.MinStep)
+			}
+
+			bid := &models.Bid{LotID: lotID, UserID: userID, Amount: amount}
+			if err := e.repo.CreateBid(ctx, bid); err != nil {
+				return err
+			}
+			bidTs = bid.CreatedAt
+
+			oldVersion := l.Version
+			l.CurrentPrice = amount
+			l.Version++
+			if e.cfg.SnipingWindow > 0 && time.Until(l.ClosingAt) <= e.cfg.SnipingWindow {
+				l.ClosingAt = time.Now().Add(e.cfg.SnipingExtension)
+				l.ExtendedCount++
+				extended = true
+			}
+			if err := e.repo.UpdateLot(ctx, l, oldVersion); err != nil {
+				return err
+			}
+			lot = l
+			return nil
+		})
+		if errors.Is(txErr, repository.ErrOptimisticLock) {
+			metrics.OptimisticLockRetries.Inc()
+			continue
+		}
+		if txErr != nil {
+			return nil, txErr
 		}
 
 		metrics.BidsTotal.WithLabelValues(lotID).Inc()
+		metrics.BidLatency.Observe(time.Since(startTS).Seconds())
 
 		e.ws.BroadcastToLot(lotID, map[string]interface{}{
 			"type":      "new_bid",
@@ -128,11 +134,11 @@ func (e *Engine) PlaceBid(ctx context.Context, lotID, userID string, amount floa
 			"user_id":   userID,
 			"amount":    amount,
 			"new_price": amount,
-			"timestamp": time.Now().UTC(),
+			"timestamp": bidTs.UTC(),
 		})
-
 		if extended {
 			e.scheduleClose(lot)
+			metrics.AntiSnipingExtensions.Inc()
 			e.ws.BroadcastToLot(lotID, map[string]interface{}{
 				"type":           "lot_extended",
 				"lot_id":         lotID,
@@ -151,7 +157,6 @@ func (e *Engine) CloseLot(lot *models.Lot) error {
 		return nil
 	}
 	if time.Now().Before(lot.ClosingAt) {
-		// Closing was extended after this timer was scheduled. Reschedule and bail.
 		e.scheduleClose(lot)
 		return nil
 	}
@@ -180,12 +185,10 @@ func (e *Engine) CloseLot(lot *models.Lot) error {
 	return nil
 }
 
-// StartTimerForLot is used at boot to restore timers for active lots.
 func (e *Engine) StartTimerForLot(lot *models.Lot) {
 	e.scheduleClose(lot)
 }
 
-// scheduleClose installs (or replaces) the auto-close timer for a lot.
 func (e *Engine) scheduleClose(lot *models.Lot) {
 	duration := time.Until(lot.ClosingAt)
 	if duration <= 0 {

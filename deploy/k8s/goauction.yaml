@@ -1,0 +1,97 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: goauction-secrets
+  namespace: goauction
+type: Opaque
+stringData:
+  JWT_SECRET: "replace-me-in-prod"
+  DATABASE_URL: "postgres://postgres:postgres@postgres:5432/goauction?sslmode=disable"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: goauction-config
+  namespace: goauction
+data:
+  PORT: "8080"
+  SNIPING_WINDOW: "30s"
+  SNIPING_EXTENSION: "30s"
+  BID_RATE_PER_SEC: "5"
+  BID_BURST: "10"
+  AUTH_RATE_PER_SEC: "1"
+  AUTH_BURST: "5"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: goauction
+  namespace: goauction
+  labels:
+    app: goauction
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: goauction
+  template:
+    metadata:
+      labels:
+        app: goauction
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: goauction
+          image: vgartg/goauction:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef: { name: goauction-config }
+            - secretRef:    { name: goauction-secrets }
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits:   { cpu: "500m", memory: "256Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: goauction
+  namespace: goauction
+spec:
+  type: ClusterIP
+  selector:
+    app: goauction
+  ports:
+    - port: 80
+      targetPort: 8080
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: goauction
+  namespace: goauction
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: goauction
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

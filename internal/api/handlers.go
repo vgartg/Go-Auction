@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/vgartg/goauction/internal/auction"
 	"github.com/vgartg/goauction/internal/auth"
+	"github.com/vgartg/goauction/internal/models"
 	"github.com/vgartg/goauction/internal/repository"
 )
 
@@ -59,7 +61,24 @@ func (h *Handlers) GetLot(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ListLots(w http.ResponseWriter, r *http.Request) {
-	lots, err := h.engine.ListLots(r.Context())
+	opts := repository.LotListOptions{
+		Limit:  20,
+		Offset: 0,
+	}
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			opts.Limit = n
+		}
+	}
+	if v := r.URL.Query().Get("offset"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			opts.Offset = n
+		}
+	}
+	if s := r.URL.Query().Get("status"); s != "" {
+		opts.Status = models.LotStatus(s)
+	}
+	lots, err := h.engine.ListLots(r.Context(), opts)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -168,5 +187,5 @@ func (h *Handlers) UserStats(w http.ResponseWriter, r *http.Request) {
 func writeJSON(w http.ResponseWriter, status int, payload interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload) // nolint:errcheck
+	_ = json.NewEncoder(w).Encode(payload)
 }

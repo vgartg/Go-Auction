@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -41,7 +42,7 @@ func (r *PostgresRepo) Close() error {
 	return r.db.Close()
 }
 
-func (r *PostgresRepo) RunMigrations(databaseURL string) error {
+func (r *PostgresRepo) RunMigrations(_ string) error {
 	driver, err := postgres.WithInstance(r.db, &postgres.Config{})
 	if err != nil {
 		return err
@@ -57,10 +58,41 @@ func (r *PostgresRepo) RunMigrations(databaseURL string) error {
 	return nil
 }
 
+type txKey struct{}
+
+type dbExecutor interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
+func (r *PostgresRepo) exec(ctx context.Context) dbExecutor {
+	if tx, ok := ctx.Value(txKey{}).(*sql.Tx); ok {
+		return tx
+	}
+	return r.db
+}
+
+func (r *PostgresRepo) WithinTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	if _, ok := ctx.Value(txKey{}).(*sql.Tx); ok {
+		return fn(ctx)
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	txCtx := context.WithValue(ctx, txKey{}, tx)
+	if err := fn(txCtx); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
+
 func (r *PostgresRepo) CreateLot(ctx context.Context, lot *models.Lot) error {
 	query := `INSERT INTO lots (title, start_price, min_step, current_price, status, closing_at, version)
               VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, created_at, extended_count`
-	return r.db.QueryRowContext(ctx, query,
+	return r.exec(ctx).QueryRowContext(ctx, query,
 		lot.Title, lot.StartPrice, lot.MinStep, lot.CurrentPrice, lot.Status, lot.ClosingAt, lot.Version,
 	).Scan(&lot.ID, &lot.CreatedAt, &lot.ExtendedCount)
 }
@@ -71,14 +103,14 @@ func (r *PostgresRepo) GetLotByID(ctx context.Context, id string, forUpdate bool
 	if forUpdate {
 		query += " FOR UPDATE"
 	}
-	row := r.db.QueryRowContext(ctx, query, id)
+	row := r.exec(ctx).QueryRowContext(ctx, query, id)
 	return scanLot(row)
 }
 
 func (r *PostgresRepo) UpdateLot(ctx context.Context, lot *models.Lot, oldVersion int) error {
 	query := `UPDATE lots SET current_price=$1, status=$2, version=$3, winner_id=$4, closing_at=$5, extended_count=$6
               WHERE id=$7 AND version=$8`
-	result, err := r.db.ExecContext(ctx, query,
+	result, err := r.exec(ctx).ExecContext(ctx, query,
 		lot.CurrentPrice, lot.Status, lot.Version, lot.WinnerID, lot.ClosingAt, lot.ExtendedCount,
 		lot.ID, oldVersion)
 	if err != nil {
@@ -97,25 +129,50 @@ func (r *PostgresRepo) GetActiveLots(ctx context.Context) ([]*models.Lot, error)
          FROM lots WHERE status = 'active' AND closing_at > NOW()`)
 }
 
-func (r *PostgresRepo) GetAllLots(ctx context.Context) ([]*models.Lot, error) {
-	return r.queryLots(ctx, `
+func (r *PostgresRepo) GetAllLots(ctx context.Context, opts LotListOptions) ([]*models.Lot, error) {
+	var (
+		conds []string
+		args  []any
+	)
+	if opts.Status != "" {
+		conds = append(conds, fmt.Sprintf("status = $%d", len(args)+1))
+		args = append(args, opts.Status)
+	}
+	where := ""
+	if len(conds) > 0 {
+		where = " WHERE " + strings.Join(conds, " AND ")
+	}
+	limit := opts.Limit
+	if limit > 100 {
+		limit = 100
+	}
+	tail := " ORDER BY created_at DESC"
+	if limit > 0 {
+		args = append(args, limit)
+		tail += fmt.Sprintf(" LIMIT $%d", len(args))
+		if opts.Offset > 0 {
+			args = append(args, opts.Offset)
+			tail += fmt.Sprintf(" OFFSET $%d", len(args))
+		}
+	}
+	query := `
         SELECT id, title, start_price, min_step, current_price, status, created_at, closing_at, version, winner_id, extended_count
-        FROM lots ORDER BY created_at DESC
-    `)
+        FROM lots` + where + tail
+	return r.queryLots(ctx, query, args...)
 }
 
 func (r *PostgresRepo) CreateBid(ctx context.Context, bid *models.Bid) error {
 	query := `INSERT INTO bids (lot_id, user_id, amount) VALUES ($1, $2, $3) RETURNING id, created_at`
-	return r.db.QueryRowContext(ctx, query, bid.LotID, bid.UserID, bid.Amount).Scan(&bid.ID, &bid.CreatedAt)
+	return r.exec(ctx).QueryRowContext(ctx, query, bid.LotID, bid.UserID, bid.Amount).
+		Scan(&bid.ID, &bid.CreatedAt)
 }
 
 func (r *PostgresRepo) GetHighestBid(ctx context.Context, lotID string) (*models.Bid, error) {
 	query := `SELECT id, lot_id, user_id, amount, created_at FROM bids
               WHERE lot_id = $1 ORDER BY amount DESC LIMIT 1`
-	row := r.db.QueryRowContext(ctx, query, lotID)
+	row := r.exec(ctx).QueryRowContext(ctx, query, lotID)
 	bid := &models.Bid{}
-	err := row.Scan(&bid.ID, &bid.LotID, &bid.UserID, &bid.Amount, &bid.CreatedAt)
-	if err != nil {
+	if err := row.Scan(&bid.ID, &bid.LotID, &bid.UserID, &bid.Amount, &bid.CreatedAt); err != nil {
 		return nil, err
 	}
 	return bid, nil
@@ -124,7 +181,7 @@ func (r *PostgresRepo) GetHighestBid(ctx context.Context, lotID string) (*models
 func (r *PostgresRepo) GetRecentBids(ctx context.Context, lotID string, limit int) ([]*models.Bid, error) {
 	query := `SELECT id, lot_id, user_id, amount, created_at FROM bids
               WHERE lot_id = $1 ORDER BY created_at DESC LIMIT $2`
-	rows, err := r.db.QueryContext(ctx, query, lotID, limit)
+	rows, err := r.exec(ctx).QueryContext(ctx, query, lotID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -137,13 +194,13 @@ func (r *PostgresRepo) GetRecentBids(ctx context.Context, lotID string, limit in
 		}
 		bids = append(bids, b)
 	}
-	return bids, nil
+	return bids, rows.Err()
 }
 
 func (r *PostgresRepo) CreateUser(ctx context.Context, user *models.User) error {
 	query := `INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3)
               RETURNING id, created_at`
-	err := r.db.QueryRowContext(ctx, query, user.Username, user.Email, user.PasswordHash).
+	err := r.exec(ctx).QueryRowContext(ctx, query, user.Username, user.Email, user.PasswordHash).
 		Scan(&user.ID, &user.CreatedAt)
 	if err != nil {
 		var pqErr *pq.Error
@@ -157,13 +214,13 @@ func (r *PostgresRepo) CreateUser(ctx context.Context, user *models.User) error 
 
 func (r *PostgresRepo) GetUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	query := `SELECT id, username, email, password_hash, created_at FROM users WHERE email = $1`
-	row := r.db.QueryRowContext(ctx, query, email)
+	row := r.exec(ctx).QueryRowContext(ctx, query, email)
 	return scanUser(row)
 }
 
 func (r *PostgresRepo) GetUserByID(ctx context.Context, id string) (*models.User, error) {
 	query := `SELECT id, username, email, password_hash, created_at FROM users WHERE id = $1`
-	row := r.db.QueryRowContext(ctx, query, id)
+	row := r.exec(ctx).QueryRowContext(ctx, query, id)
 	return scanUser(row)
 }
 
@@ -176,7 +233,7 @@ func (r *PostgresRepo) GetUserStats(ctx context.Context, id string) (*models.Use
                COALESCE((SELECT SUM(current_price) FROM lots WHERE winner_id = u.id), 0) AS total_spent
         FROM users u
         WHERE u.id = $1`
-	err := r.db.QueryRowContext(ctx, query, id).
+	err := r.exec(ctx).QueryRowContext(ctx, query, id).
 		Scan(&stats.Username, &stats.BidsCount, &stats.WinsCount, &stats.TotalSpent)
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
@@ -187,8 +244,8 @@ func (r *PostgresRepo) GetUserStats(ctx context.Context, id string) (*models.Use
 	return stats, nil
 }
 
-func (r *PostgresRepo) queryLots(ctx context.Context, query string) ([]*models.Lot, error) {
-	rows, err := r.db.QueryContext(ctx, query)
+func (r *PostgresRepo) queryLots(ctx context.Context, query string, args ...any) ([]*models.Lot, error) {
+	rows, err := r.exec(ctx).QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +258,7 @@ func (r *PostgresRepo) queryLots(ctx context.Context, query string) ([]*models.L
 		}
 		lots = append(lots, lot)
 	}
-	return lots, nil
+	return lots, rows.Err()
 }
 
 type rowScanner interface {

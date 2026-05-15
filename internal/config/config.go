@@ -12,10 +12,13 @@ type Config struct {
 	MetricsEnabled bool   `env:"METRICS_ENABLED" envDefault:"true"`
 	JWTSecret      string `env:"JWT_SECRET" envDefault:"dev-insecure-secret-please-change"`
 
-	// Anti-sniping: if a bid arrives within SnipingWindow before close,
-	// extend ClosingAt by SnipingExtension. Set Window to 0 to disable.
 	SnipingWindow    time.Duration `env:"SNIPING_WINDOW"    envDefault:"30s"`
 	SnipingExtension time.Duration `env:"SNIPING_EXTENSION" envDefault:"30s"`
+
+	BidRatePerSec  float64 `env:"BID_RATE_PER_SEC"  envDefault:"5"`
+	BidBurst       float64 `env:"BID_BURST"         envDefault:"10"`
+	AuthRatePerSec float64 `env:"AUTH_RATE_PER_SEC" envDefault:"1"`
+	AuthBurst      float64 `env:"AUTH_BURST"        envDefault:"5"`
 }
 
 func Load() (*Config, error) {

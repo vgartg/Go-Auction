@@ -123,7 +123,6 @@ func (s *Service) ParseToken(raw string) (*Claims, error) {
 	return claims, nil
 }
 
-// SetSessionCookie writes the JWT as an HTTP-only cookie for the web UI.
 func SetSessionCookie(w http.ResponseWriter, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     cookieName,
@@ -162,8 +161,6 @@ type ctxKey int
 
 const userCtxKey ctxKey = 0
 
-// Middleware enforces authentication. On failure returns 401 for API or
-// redirects to /login for HTML requests.
 func (s *Service) Middleware(redirectHTML bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -182,8 +179,6 @@ func (s *Service) Middleware(redirectHTML bool) func(http.Handler) http.Handler 
 	}
 }
 
-// Attach injects claims into context if present but does not require auth.
-// Useful for pages that render differently for guests vs logged-in users.
 func (s *Service) Attach(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if claims, ok := s.tryAuth(r); ok {
@@ -206,7 +201,6 @@ func (s *Service) tryAuth(r *http.Request) (*Claims, bool) {
 	return claims, true
 }
 
-// FromContext returns the authenticated claims, if any.
 func FromContext(ctx context.Context) (*Claims, bool) {
 	c, ok := ctx.Value(userCtxKey).(*Claims)
 	return c, ok

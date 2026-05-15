@@ -1,0 +1,272 @@
+openapi: 3.0.3
+info:
+  title: GoAuction API
+  version: 1.0.0
+  description: |
+    Real-time auction engine. Concurrent bidding with optimistic locking,
+    anti-sniping, JWT auth, WebSocket updates per lot.
+  license:
+    name: MIT
+servers:
+  - url: http://localhost:8080
+    description: Local docker-compose
+
+tags:
+  - name: auth
+  - name: lots
+  - name: users
+  - name: ops
+
+paths:
+  /api/auth/register:
+    post:
+      tags: [auth]
+      summary: Register a new user and receive a JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '409': { description: Username or email already taken }
+        '429': { description: Rate-limited }
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: Log in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '401': { description: Invalid credentials }
+
+  /api/auth/me:
+    get:
+      tags: [auth]
+      summary: Current authenticated user
+      security: [{ bearer: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { description: Unauthorized }
+
+  /api/lots:
+    get:
+      tags: [lots]
+      summary: List lots (paginated, optional status filter)
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: status
+          schema: { type: string, enum: [active, closed, canceled] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Lot' }
+    post:
+      tags: [lots]
+      summary: Create a new lot (auth required)
+      security: [{ bearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateLotRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lot' }
+        '400': { description: Invalid lot parameters }
+        '401': { description: Unauthorized }
+
+  /api/lots/{id}:
+    get:
+      tags: [lots]
+      summary: Fetch a single lot by ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lot' }
+        '404': { description: Lot not found }
+
+  /api/lots/{id}/bids:
+    post:
+      tags: [lots]
+      summary: Place a bid on a lot (auth + rate-limited)
+      security: [{ bearer: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PlaceBidRequest' }
+      responses:
+        '200':
+          description: Bid accepted, returns updated lot
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Lot' }
+        '400': { description: Bid rejected (too low, lot inactive, …) }
+        '401': { description: Unauthorized }
+        '429': { description: Rate-limited }
+
+  /api/users/{id}/stats:
+    get:
+      tags: [users]
+      summary: Aggregated stats for a user
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserStats' }
+        '404': { description: User not found }
+
+  /ws/lots/{id}:
+    get:
+      tags: [lots]
+      summary: WebSocket subscription for a lot's real-time events
+      description: |
+        Upgrade to a WebSocket and receive JSON events as they happen:
+        `new_bid`, `lot_extended`, `lot_closed`.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '101': { description: Switching protocols }
+
+  /metrics:
+    get:
+      tags: [ops]
+      summary: Prometheus exposition format
+      responses:
+        '200': { description: Metrics }
+
+  /healthz:
+    get:
+      tags: [ops]
+      summary: Liveness probe
+      responses:
+        '200': { description: ok }
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [username, email, password]
+      properties:
+        username: { type: string, minLength: 2, maxLength: 64 }
+        email:    { type: string, format: email }
+        password: { type: string, minLength: 6 }
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:    { type: string, format: email }
+        password: { type: string }
+
+    AuthResponse:
+      type: object
+      properties:
+        token:    { type: string }
+        user_id:  { type: string, format: uuid }
+        username: { type: string }
+
+    User:
+      type: object
+      properties:
+        id:         { type: string, format: uuid }
+        username:   { type: string }
+        email:      { type: string, format: email }
+        created_at: { type: string, format: date-time }
+
+    Lot:
+      type: object
+      properties:
+        id:             { type: string, format: uuid }
+        title:          { type: string }
+        start_price:    { type: number, format: double }
+        min_step:       { type: number, format: double }
+        current_price:  { type: number, format: double }
+        status:         { type: string, enum: [active, closed, canceled] }
+        created_at:     { type: string, format: date-time }
+        closing_at:     { type: string, format: date-time }
+        version:        { type: integer }
+        winner_id:      { type: string, format: uuid, nullable: true }
+        extended_count: { type: integer }
+
+    CreateLotRequest:
+      type: object
+      required: [title, start_price, min_step, closing_at]
+      properties:
+        title:       { type: string }
+        start_price: { type: number, format: double }
+        min_step:    { type: number, format: double }
+        closing_at:  { type: string, format: date-time }
+
+    PlaceBidRequest:
+      type: object
+      required: [amount]
+      properties:
+        amount: { type: number, format: double }
+
+    UserStats:
+      type: object
+      properties:
+        user_id:     { type: string, format: uuid }
+        username:    { type: string }
+        bids_count:  { type: integer }
+        wins_count:  { type: integer }
+        total_spent: { type: number, format: double }

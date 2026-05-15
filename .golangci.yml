@@ -1,0 +1,11 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: standard
+  exclusions:
+    paths:
+      - internal/web/views/.*_templ\.go$

@@ -46,8 +46,8 @@ func (m *MockLotRepository) GetActiveLots(ctx context.Context) ([]*models.Lot, e
 	args := m.Called(ctx)
 	return args.Get(0).([]*models.Lot), args.Error(1)
 }
-func (m *MockLotRepository) GetAllLots(ctx context.Context) ([]*models.Lot, error) {
-	args := m.Called(ctx)
+func (m *MockLotRepository) GetAllLots(ctx context.Context, opts repository.LotListOptions) ([]*models.Lot, error) {
+	args := m.Called(ctx, opts)
 	return args.Get(0).([]*models.Lot), args.Error(1)
 }
 func (m *MockLotRepository) GetRecentBids(ctx context.Context, lotID string, limit int) ([]*models.Bid, error) {
@@ -56,6 +56,9 @@ func (m *MockLotRepository) GetRecentBids(ctx context.Context, lotID string, lim
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]*models.Bid), args.Error(1)
+}
+func (m *MockLotRepository) WithinTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(ctx)
 }
 
 type MockWSManager struct {
@@ -108,7 +111,7 @@ func TestEngine_PlaceBid_RejectsBelowMinStep(t *testing.T) {
 	}
 	repo.On("GetLotByID", ctx, "lot-1", true).Return(existing, nil)
 
-	_, err := engine.PlaceBid(ctx, "lot-1", "user-1", 105) // 100 + 10 = 110 required
+	_, err := engine.PlaceBid(ctx, "lot-1", "user-1", 105)
 	assert.Error(t, err)
 	repo.AssertExpectations(t)
 }
@@ -124,7 +127,7 @@ func TestEngine_PlaceBid_TriggersAntiSniping(t *testing.T) {
 		Status:       models.LotStatusActive,
 		CurrentPrice: 100,
 		MinStep:      10,
-		ClosingAt:    time.Now().Add(5 * time.Second), // within 30s sniping window
+		ClosingAt:    time.Now().Add(5 * time.Second),
 		Version:      1,
 	}
 	repo.On("GetLotByID", ctx, "lot-1", true).Return(existing, nil)
@@ -153,8 +156,6 @@ func TestEngine_PlaceBid_OptimisticLockRetry(t *testing.T) {
 	engine := newTestEngine(repo, ws)
 
 	ctx := context.Background()
-	// First fetch sees price=100, v=1. Concurrent bid bumps to price=105, v=2.
-	// Retry fetches the new state and our 120 bid wins on v=2.
 	repo.On("GetLotByID", ctx, "lot-1", true).Return(&models.Lot{
 		ID: "lot-1", Status: models.LotStatusActive,
 		CurrentPrice: 100, MinStep: 10,

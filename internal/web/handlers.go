@@ -17,6 +17,8 @@ import (
 	"github.com/vgartg/goauction/internal/web/views"
 )
 
+const homePageSize = 24
+
 type Handlers struct {
 	engine *auction.Engine
 	auth   *auth.Service
@@ -47,15 +49,17 @@ func render(w http.ResponseWriter, r *http.Request, c templ.Component) {
 	_ = c.Render(r.Context(), w)
 }
 
-// --- Pages ---
-
 func (h *Handlers) Home(w http.ResponseWriter, r *http.Request) {
-	lots, err := h.engine.ListLots(r.Context())
+	opts := repository.LotListOptions{Limit: homePageSize}
+	if s := r.URL.Query().Get("status"); s != "" {
+		opts.Status = models.LotStatus(s)
+	}
+	lots, err := h.engine.ListLots(r.Context(), opts)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	render(w, r, views.Home(h.layoutData(r, "Auctions"), lots))
+	render(w, r, views.Home(h.layoutData(r, "Auctions"), lots, string(opts.Status)))
 }
 
 func (h *Handlers) LotPage(w http.ResponseWriter, r *http.Request) {
@@ -90,12 +94,15 @@ func (h *Handlers) CreateLot(w http.ResponseWriter, r *http.Request) {
 	startPrice, _ := strconv.ParseFloat(r.FormValue("start_price"), 64)
 	minStep, _ := strconv.ParseFloat(r.FormValue("min_step"), 64)
 	closingStr := r.FormValue("closing_at")
+	tzOffsetMinutes, _ := strconv.Atoi(r.FormValue("tz_offset_minutes"))
 
-	closingAt, err := time.ParseInLocation("2006-01-02T15:04", closingStr, time.UTC)
+	loc := time.FixedZone("client", -tzOffsetMinutes*60)
+	closingAt, err := time.ParseInLocation("2006-01-02T15:04", closingStr, loc)
 	if err != nil {
 		render(w, r, views.NewLot(h.layoutData(r, "Create lot"), "Invalid closing time"))
 		return
 	}
+	closingAt = closingAt.UTC()
 	if title == "" || startPrice <= 0 || minStep <= 0 || closingAt.Before(time.Now()) {
 		render(w, r, views.NewLot(h.layoutData(r, "Create lot"), "All fields are required and must be valid"))
 		return
@@ -107,8 +114,6 @@ func (h *Handlers) CreateLot(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Redirect(w, r, "/lots/"+lot.ID, http.StatusSeeOther)
 }
-
-// --- HTMX endpoint: place bid, returns the updated bid panel fragment ---
 
 func (h *Handlers) PlaceBid(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.FromContext(r.Context())
@@ -128,7 +133,6 @@ func (h *Handlers) PlaceBid(w http.ResponseWriter, r *http.Request) {
 	}
 	lot, err := h.engine.PlaceBid(r.Context(), lotID, claims.UserID, amount)
 	if err != nil {
-		// On error, re-render the panel with current state + error message.
 		current, gerr := h.engine.GetLot(r.Context(), lotID)
 		if gerr != nil {
 			http.Error(w, gerr.Error(), http.StatusInternalServerError)
@@ -139,8 +143,6 @@ func (h *Handlers) PlaceBid(w http.ResponseWriter, r *http.Request) {
 	}
 	render(w, r, views.BidPanel(lot, currentUserFromContext(r.Context()), ""))
 }
-
-// --- Auth pages ---
 
 func (h *Handlers) LoginForm(w http.ResponseWriter, r *http.Request) {
 	render(w, r, views.Login(h.layoutData(r, "Log in"), "", "", r.URL.Query().Get("next")))
