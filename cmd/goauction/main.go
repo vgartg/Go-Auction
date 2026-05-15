@@ -38,7 +38,11 @@ func main() {
 		logger.Error("failed to connect to database", "error", err)
 		os.Exit(1)
 	}
-	defer repo.Close()
+	defer func() {
+		if err := repo.Close(); err != nil {
+			slog.Error("failed to close repository", "error", err)
+		}
+	}()
 
 	if err := repo.RunMigrations(cfg.DatabaseURL); err != nil {
 		logger.Error("failed to run migrations", "error", err)
