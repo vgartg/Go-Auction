@@ -14,4 +14,12 @@ type LotRepository interface {
 	GetHighestBid(ctx context.Context, lotID string) (*models.Bid, error)
 	GetActiveLots(ctx context.Context) ([]*models.Lot, error)
 	GetAllLots(ctx context.Context) ([]*models.Lot, error)
+	GetRecentBids(ctx context.Context, lotID string, limit int) ([]*models.Bid, error)
+}
+
+type UserRepository interface {
+	CreateUser(ctx context.Context, user *models.User) error
+	GetUserByEmail(ctx context.Context, email string) (*models.User, error)
+	GetUserByID(ctx context.Context, id string) (*models.User, error)
+	GetUserStats(ctx context.Context, id string) (*models.UserStats, error)
 }

@@ -1,0 +1,75 @@
+package views
+
+import "github.com/vgartg/goauction/internal/models"
+
+type LayoutData struct {
+	Title       string
+	CurrentUser *models.User
+	FlashError  string
+}
+
+templ Layout(data LayoutData) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>{ data.Title } · GoAuction</title>
+			<script src="https://cdn.tailwindcss.com"></script>
+			<script src="https://unpkg.com/htmx.org@2.0.4" integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+" crossorigin="anonymous"></script>
+			<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+			<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔨</text></svg>"/>
+			<style>
+				[x-cloak] { display: none !important; }
+				.hover-lift { transition: transform .15s ease, box-shadow .15s ease; }
+				.hover-lift:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.08); }
+			</style>
+		</head>
+		<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col">
+			@Header(data.CurrentUser)
+			<main class="flex-1 w-full max-w-6xl mx-auto px-4 py-6">
+				if data.FlashError != "" {
+					<div class="mb-4 rounded-md bg-red-50 border border-red-200 text-red-800 px-4 py-2 text-sm">
+						{ data.FlashError }
+					</div>
+				}
+				{ children... }
+			</main>
+			@Footer()
+		</body>
+	</html>
+}
+
+templ Header(user *models.User) {
+	<header class="bg-white border-b border-slate-200 sticky top-0 z-30">
+		<div class="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+			<a href="/" class="flex items-center gap-2 font-bold text-lg">
+				<span class="text-amber-500">🔨</span>
+				<span>GoAuction</span>
+			</a>
+			<nav class="flex items-center gap-4 text-sm">
+				<a href="/" class="text-slate-700 hover:text-slate-900">Lots</a>
+				if user != nil {
+					<a href="/lots/new" class="text-slate-700 hover:text-slate-900">Create lot</a>
+					<a href={ templ.SafeURL("/users/" + user.ID) } class="text-slate-700 hover:text-slate-900">
+						{ user.Username }
+					</a>
+					<form method="POST" action="/logout" class="inline">
+						<button class="text-slate-500 hover:text-slate-900">Log out</button>
+					</form>
+				} else {
+					<a href="/login" class="text-slate-700 hover:text-slate-900">Log in</a>
+					<a href="/register" class="bg-slate-900 text-white rounded-md px-3 py-1.5 hover:bg-slate-800">Sign up</a>
+				}
+			</nav>
+		</div>
+	</header>
+}
+
+templ Footer() {
+	<footer class="mt-10 py-6 text-center text-xs text-slate-400">
+		<a href="https://github.com/vgartg/goauction" class="hover:text-slate-600">vgartg/goauction</a>
+		<span class="mx-2">·</span>
+		<span>Go + templ + HTMX + WebSocket</span>
+	</footer>
+}
