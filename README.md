@@ -1,12 +1,16 @@
 # GoAuction
 
 [![CI](https://github.com/vgartg/goauction/actions/workflows/ci.yml/badge.svg)](https://github.com/vgartg/goauction/actions/workflows/ci.yml)
+[![Deploy](https://github.com/vgartg/goauction/actions/workflows/deploy.yml/badge.svg)](https://github.com/vgartg/goauction/actions/workflows/deploy.yml)
+[![Live Demo](https://img.shields.io/badge/demo-live-22C55E?logo=githubpages&logoColor=white)](https://vgartg.github.io/goauction/)
 [![Go Report Card](https://goreportcard.com/badge/github.com/vgartg/PET_Go-Auction)](https://goreportcard.com/report/github.com/vgartg/PET_Go-Auction)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Real-time auction engine in Go. Concurrent bidding with optimistic locking, anti-sniping, JWT auth, WebSocket updates and a server-rendered UI on **templ + HTMX + Tailwind**
 
 > One binary serves the JSON REST API on `/api/*` and the full HTML UI on `/`. Same engine, same database, no SPA toolchain
+
+**Live demo:** <https://vgartg.github.io/goauction/> — a Vite/TypeScript SPA in [`web/`](web/) that ports the auction engine to the browser so the demo runs without Postgres, JWT or the Go binary
 
 ---
 

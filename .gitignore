@@ -17,3 +17,7 @@ Thumbs.db
 
 .env
 .env.local
+
+web/node_modules/
+web/dist/
+web/.vite/
